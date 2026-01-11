@@ -1,0 +1,108 @@
+========================= PSQL PROMPT QUERIES =========================
+DROP DATABASE number_guess;
+
+psql --username=freecodecamp --dbname=postgres
+CREATE DATABASE number_guess;
+\c number_guess;
+CREATE TABLE accounts();
+ALTER TABLE accounts ADD COLUMN user_id SERIAL PRIMARY KEY;
+ALTER TABLE accounts ADD COLUMN username VARCHAR(22) UNIQUE;
+ALTER TABLE accounts ADD COLUMN games_played INT;
+ALTER TABLE accounts ADD COLUMN best_game INT;
+SELECT * FROM accounts;
+
+========================= BASH PROMPT COMMANDS =========================
+mkdir "number_guessing_game"
+cd number_guessing_game
+touch number_guess.sh
+chmod +x number_guess.sh
+git init
+git config --global init.defaultBranch main
+git branch -m main
+
+git add .
+git commit -m "Initial commit"
+
+git add .
+git commit -m "fix: 1"
+
+
+========================= SH CODES =========================
+
+#!/bin/bash
+PSQL="psql --username=freecodecamp --dbname=number_guess -t --no-align -c"
+
+# ./number_guess.sh
+
+INPUT_USERNAME=""
+USER_ID=""
+SECRET_NUMBER=$(($RANDOM % 1000 + 1))
+
+function LOGIN_ACCOUNT() {
+  if [[ $1 ]]; then #Do this so MAIN_MENU "<message>" would work
+    echo -e "\n$1"
+  fi
+
+  echo "Enter your username:"
+  read INPUT_USERNAME
+  USER_ID=$($PSQL "SELECT user_id FROM accounts WHERE username = '$INPUT_USERNAME'")
+
+  if [[ -z $USER_ID ]]; then
+    echo "Welcome, $INPUT_USERNAME! It looks like this is your first time here."
+    echo "Guess the secret number between 1 and 1000:"
+    PLAY_GUESS_NUMBER
+  else
+    USERNAME=$($PSQL "SELECT username FROM accounts WHERE user_id = '$USER_ID'")
+    GAMES_PLAYED=$($PSQL "SELECT games_played FROM accounts WHERE user_id = '$USER_ID'")
+    BEST_GAME=$($PSQL "SELECT best_game FROM accounts WHERE user_id = '$USER_ID'")
+    echo "Welcome back, $USERNAME! You have played $GAMES_PLAYED games, and your best game took $BEST_GAME guesses."
+    echo "Guess the secret number between 1 and 1000:"
+    PLAY_GUESS_NUMBER
+  fi
+}
+
+function PLAY_GUESS_NUMBER() {
+  if [[ $1 ]]; then #Do this so MAIN_MENU "<message>" would work
+    echo -e "\n$1"
+  fi
+
+  echo "SECRET_NUMBER: $SECRET_NUMBER"
+  read INPUT_GUESS
+
+  if [[ $INPUT_GUESS =~ ^[a-zA-Z]+$ ]]; then
+    echo "That is not an integer, guess again:"
+    PLAY_GUESS_NUMBER
+  elif [[ ! $INPUT_GUESS =~ $SECRET_NUMBER ]]; then
+    ((NUMBER_OF_GUESSES = NUMBER_OF_GUESSES + 1))
+    if [[ $INPUT_GUESS -gt $SECRET_NUMBER ]]; then
+      echo "It's lower than that, guess again:"
+      PLAY_GUESS_NUMBER
+    else
+      echo "It's higher than that, guess again:"
+      PLAY_GUESS_NUMBER
+    fi
+  elif [[ $INPUT_GUESS =~ $SECRET_NUMBER ]]; then
+    ((NUMBER_OF_GUESSES = NUMBER_OF_GUESSES + 1))
+
+    #TEMP_ID="$USERNAME$NUMBER_OF_GUESSES$RANDOM_NUMBER"
+    #if [[ -z $USER_ID ]]; then
+      #INSERT_USER=$($PSQL "INSERT INTO accounts(user_id, username, games_played, best_game) 
+       #VALUES('$TEMP_ID', '$INPUT_USERNAME', 1, $NUMBER_OF_GUESSES);")
+    if [[ -z $USER_ID ]]; then
+      INSERT_USER=$($PSQL "INSERT INTO accounts(username, games_played, best_game) 
+       VALUES('$INPUT_USERNAME', 1, $NUMBER_OF_GUESSES);")
+    else
+      PREV_GAMES_PLAYED=$($PSQL "SELECT games_played FROM accounts WHERE user_id = '$USER_ID'")
+      ((NEW_GAMES_PLAYED = PREV_GAMES_PLAYED + 1))
+      UPDATE_GAMES_PLAYED=$($PSQL "UPDATE accounts SET games_played = $NEW_GAMES_PLAYED WHERE user_id = '$USER_ID'")
+
+      CURRENT_BEST_GAME=$($PSQL "SELECT best_game FROM accounts WHERE user_id = '$USER_ID'")
+      if [[ $NUMBER_OF_GUESSES -lt $CURRENT_BEST_GAME ]]; then
+        UPDATE_BEST_GAME=$($PSQL "UPDATE accounts SET best_game = $NUMBER_OF_GUESSES WHERE user_id = '$USER_ID'")
+      fi
+    fi
+    echo "You guessed it in $NUMBER_OF_GUESSES tries. The secret number was $SECRET_NUMBER. Nice job!"
+  fi
+}
+
+LOGIN_ACCOUNT
